@@ -39,19 +39,26 @@ configPortal:
   if (config_portal) {
     wifiManager.startConfigPortal("Wake-on-ESP");
   } else {
-    //
-    if (!wifiManager.autoConnect()) {
-      // If connection failed, and the user requested opening of the config portal by shorting D4,
+    bool connected = false;
+
+    // This loop allows the user more time to short D4 to request the config portal before reboot.
+    // We do not use setConnectRetries, since the config portal wouldn't open until all retries
+    // are exausted, which can be quite a while. We want to react to D4 as soon as possible though.
+    for (int i = 0; !connected && i < 10; ++i) {
+      connected = wifiManager.autoConnect();
+
+      // If connection failed, and the user requested opening the config portal by shorting D4,
       //  go to the config portal.
-      if (configPortalRequested) {
+      if (!connected && configPortalRequested) {
         config_portal = true;
         configPortalRequested = false;
         goto configPortal;
       }
+    }
 
+    if (!connected) {
       // Assume the wifi may be temporarily unavailable,
       // wait a while then reboot to retry connection.
-      delay(DELAY_RESTART);
       Serial.println("Could not connect to WLAN, restarting...");
       ESP.restart();
     }
