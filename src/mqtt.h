@@ -1,5 +1,5 @@
-#include <ESP8266WiFi.h>
 #include <AsyncMqttClient.h>
+#include <ESP8266WiFi.h>
 #include <Ticker.h>
 
 static bool action_power = 0;
@@ -20,8 +20,8 @@ void onMqttConnect(bool sessionPresent) {
   Serial.println("*MQTT: Connected to MQTT.");
   Serial.print("*MQTT: Session present: ");
   Serial.println(sessionPresent);
-  if (strlen(mqtt_topic)==0) {
-    strcpy(mqtt_topic,"wakeonesp/wake");
+  if (strlen(mqtt_topic) == 0) {
+    strcpy(mqtt_topic, "wakeonesp/wake");
   };
   uint16_t packetIdSub = mqttClient.subscribe(mqtt_topic, 2);
   Serial.print("*MQTT: Subscribing at QoS 2, packetId: ");
@@ -54,7 +54,7 @@ void onMqttUnsubscribe(uint16_t packetId) {
   Serial.println(packetId);
 }
 
-void onMqttMessage(char* topic, char* payload, AsyncMqttClientMessageProperties properties, size_t len, size_t index, size_t total) {
+void onMqttMessage(char *topic, char *payload, AsyncMqttClientMessageProperties properties, size_t len, size_t index, size_t total) {
   Serial.println("*MQTT: Publish received.");
   Serial.print("*MQTT:   topic: ");
   Serial.println(topic);
@@ -102,9 +102,9 @@ void mqttSetup() {
 
   mqttClient.setServer(mqtt_ip, atoi(mqtt_port));
   mqttClient.setCredentials(mqtt_user, mqtt_password);
-  String clientIdStr = "WoE-"+WiFi.macAddress();
+  String clientIdStr = "WoE-" + WiFi.macAddress();
   char clientId[24];
-  clientIdStr.toCharArray(clientId,24);
+  clientIdStr.toCharArray(clientId, 24);
   mqttClient.setClientId(clientId);
 
   // if (strncmp(mqtt_port, "8883", 4)) {

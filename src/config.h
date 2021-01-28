@@ -1,20 +1,27 @@
-#include <FS.h>
 #include <ArduinoJson.h>
+#include <FS.h>
 
-static char mqtt_server[128] = ""; 
-static char mqtt_port[6] = ""; 
+static char mqtt_server[128] = "";
+static char mqtt_port[6] = "";
 static char mqtt_user[128] = "";
 static char mqtt_password[128] = "";
 static char mqtt_topic[128] = "";
 static char mqtt_fingerprint[256] = "";
 
 static bool shouldSaveConfig = false;
+static bool configPortalRequested = false;
+
+// milliseconds
+#define DELAY_RESTART 30 * 1000
+// seconds
+#define CONFIG_PORTAL_TIMEOUT 4 * 60
 
 void saveConfigCallback();
 void loadConfig();
 void saveConfig();
+void configPinISR();
 
-void saveConfigCallback () {
+void saveConfigCallback() {
   Serial.println("Should save config");
   shouldSaveConfig = true;
 }
@@ -39,7 +46,7 @@ void loadConfig() {
         StaticJsonDocument<1024> doc;
         DeserializationError error = deserializeJson(doc, buf.get());
         if (error)
-            Serial.println("Failed to read file, using default configuration");
+          Serial.println("Failed to read file, using default configuration");
 
         JsonObject json = doc.as<JsonObject>();
         if (!json.isNull()) {
@@ -57,7 +64,7 @@ void loadConfig() {
         }
         configFile.close();
       }
-    }  
+    }
   } else {
     Serial.println("Failed to mount FS. Formatting in 10 Seconds.");
     delay(10000);
@@ -86,4 +93,8 @@ void saveConfig() {
   }
   configFile.close();
   shouldSaveConfig = false;
+}
+
+void ICACHE_RAM_ATTR configPinISR() {
+  configPortalRequested = true;
 }
