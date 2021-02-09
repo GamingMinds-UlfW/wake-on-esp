@@ -103,9 +103,7 @@ void mqttSetup() {
   mqttClient.setServer(mqtt_ip, atoi(mqtt_port));
   mqttClient.setCredentials(mqtt_user, mqtt_password);
   String clientIdStr = "WoE-" + WiFi.macAddress();
-  char clientId[24];
-  clientIdStr.toCharArray(clientId, 24);
-  mqttClient.setClientId(clientId);
+  mqttClient.setClientId(clientIdStr.c_str());
 
   // if (strncmp(mqtt_port, "8883", 4)) {
   //   mqttClient.setSecure(true);
