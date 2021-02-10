@@ -86,6 +86,8 @@ void onMqttPublish(uint16_t packetId) {
   Serial.println(packetId);
 }
 
+static char mqtt_clientid[24] = "";
+
 void mqttSetup() {
   mqttClient.onConnect(onMqttConnect);
   mqttClient.onDisconnect(onMqttDisconnect);
@@ -103,7 +105,12 @@ void mqttSetup() {
   mqttClient.setServer(mqtt_ip, atoi(mqtt_port));
   mqttClient.setCredentials(mqtt_user, mqtt_password);
   String clientIdStr = "WoE-" + WiFi.macAddress();
-  mqttClient.setClientId(clientIdStr.c_str());
+  // Remove (possibly) illegal chars, see http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html chapter 3.1.3.1
+  clientIdStr.replace(":", "");
+  // Need a static char array, since connect will use the client id after mqttSetup exits
+  clientIdStr.toCharArray(mqtt_clientid, 24);
+  Serial.println(mqtt_clientid);
+  mqttClient.setClientId(mqtt_clientid);
 
   // if (strncmp(mqtt_port, "8883", 4)) {
   //   mqttClient.setSecure(true);
