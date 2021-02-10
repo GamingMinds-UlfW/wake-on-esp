@@ -109,7 +109,6 @@ void mqttSetup() {
   clientIdStr.replace(":", "");
   // Need a static char array, since connect will use the client id after mqttSetup exits
   clientIdStr.toCharArray(mqtt_clientid, 24);
-  Serial.println(mqtt_clientid);
   mqttClient.setClientId(mqtt_clientid);
 
   // if (strncmp(mqtt_port, "8883", 4)) {
