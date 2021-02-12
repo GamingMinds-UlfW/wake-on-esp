@@ -1,3 +1,4 @@
+#include <ArduinoJson.h>
 #include <AsyncMqttClient.h>
 #include <ESP8266WiFi.h>
 #include <Ticker.h>
@@ -5,11 +6,19 @@
 static bool action_power = 0;
 static bool action_power_force = 0;
 static bool action_reset = 0;
-
+static int wlan_disconnects = 0;
 static AsyncMqttClient mqttClient;
 Ticker mqttReconnectTimer;
+StaticJsonDocument<1024> aliveJson;
+StaticJsonDocument<1024> ackJson;
+static char mqtt_state_topic[128] = "";
+static char mqtt_ack_topic[128] = "";
+
+Ticker mqttAliveTimer;
 
 void mqttSetup();
+void callbackMqttAliveTimer();
+void mqttAckPublish();
 
 void connectToMqtt() {
   Serial.println("*MQTT: Connecting to MQTT...");
@@ -23,14 +32,27 @@ void onMqttConnect(bool sessionPresent) {
   if (strlen(mqtt_topic) == 0) {
     strcpy(mqtt_topic, "wakeonesp/wake");
   };
+  strcpy(mqtt_state_topic, mqtt_topic);
+  strcpy(mqtt_ack_topic, mqtt_topic);
+  strcat(mqtt_state_topic, "/state");
+  strcat(mqtt_ack_topic, "/ack");
   uint16_t packetIdSub = mqttClient.subscribe(mqtt_topic, 2);
   Serial.print("*MQTT: Subscribing at QoS 2, packetId: ");
   Serial.println(packetIdSub);
+
+  aliveJson["mqtt"]["connectMillis"] = millis();
+
+  callbackMqttAliveTimer();
+
+  mqttAliveTimer.attach(15.0f, callbackMqttAliveTimer);
 }
 
 void onMqttDisconnect(AsyncMqttClientDisconnectReason reason) {
   Serial.println("*MQTT: Disconnected from MQTT.");
 
+  aliveJson["mqtt"]["disconnectMillis"] = millis();
+
+  mqttAliveTimer.detach();
   // if (reason == AsyncMqttClientDisconnectReason::TLS_BAD_FINGERPRINT) {
   //   Serial.println("Bad server fingerprint.");
   // }
@@ -73,10 +95,19 @@ void onMqttMessage(char *topic, char *payload, AsyncMqttClientMessageProperties 
   Serial.println();
   if (!strncmp(payload, "on", len)) {
     action_power = 1;
+    ackJson["type"] = "power";
+    ackJson["millis"] = millis();
+    mqttAckPublish();
   } else if (!strncmp(payload, "force_off", len)) {
     action_power_force = 1;
+    ackJson["type"] = "force_off";
+    ackJson["millis"] = millis();
+    mqttAckPublish();
   } else if (!strncmp(payload, "reset", len)) {
     action_reset = 1;
+    ackJson["type"] = "reset";
+    ackJson["millis"] = millis();
+    mqttAckPublish();
   }
 }
 
@@ -117,5 +148,31 @@ void mqttSetup() {
   //   StringToBytes((String)mqtt_fingerprint, target_fp);
   //   mqttClient.addServerFingerprint(target_fp);
   // }
+  aliveJson["clientId"] = mqtt_clientid;
+  aliveJson["uptimeMillis"] = millis();
+  ackJson["type"] = "setup";
+  ackJson["millis"] = millis();
+  aliveJson["lastAction"] = ackJson;
+  aliveJson["mqtt"]["disconnectMillis"] = 0;
+  aliveJson["mqtt"]["connectMillis"] = 0;
+
   mqttClient.connect();
+}
+
+void mqttAckPublish() {
+  if (mqttClient.connected()) {
+    String str;
+
+    serializeJson(ackJson, str);
+    mqttClient.publish(mqtt_ack_topic, 0, false, str.c_str());
+  }
+}
+void callbackMqttAliveTimer() {
+  if (mqttClient.connected()) {
+    String str;
+    aliveJson["uptimeMillis"] = millis();
+    aliveJson["lastAction"] = ackJson;
+    serializeJson(aliveJson, str);
+    mqttClient.publish(mqtt_state_topic, 0, false, str.c_str());
+  }
 }
