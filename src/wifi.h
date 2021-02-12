@@ -37,6 +37,8 @@ void wifiSetup(bool onDemand = false) {
 
 configPortal:
   if (config_portal) {
+    // Re-Enable the AP mode if it was disabled by the autoconnect code below.
+    WiFi.mode(WIFI_AP_STA);
     wifiManager.startConfigPortal("Wake-on-ESP");
   } else {
     bool connected = false;
@@ -46,6 +48,14 @@ configPortal:
     // are exausted, which can be quite a while. We want to react to D4 as soon as possible though.
     for (int i = 0; !connected && i < 10; ++i) {
       connected = wifiManager.autoConnect();
+
+      if (connected) {
+        // Otherwise an **OPEN** AP is present where everyone can connect...
+        // Suggested by https://github.com/tzapu/WiFiManager/issues/833
+        WiFi.mode(WIFI_STA);
+        // Suggested by https://forum.arduino.cc/index.php?topic=557669.0
+        // WiFi.softAPdisconnect(true);
+      }
 
       // If connection failed, and the user requested opening the config portal by shorting D4,
       //  go to the config portal.
