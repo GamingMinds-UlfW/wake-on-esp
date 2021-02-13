@@ -1,3 +1,4 @@
+#include "utility.h"
 #include <ESP8266WiFi.h>
 #include <ESPAsyncUDP.h>
 
@@ -48,9 +49,8 @@ void udpCallback(AsyncUDPPacket packet) {
 }
 
 void wolSetup() {
-  Serial.print("*WOL: My MAC-Address is: ");
   String mac = WiFi.macAddress();
-  Serial.println(mac);
+  Utility::Serial::printLn("*WOL: My MAC-Address is: ", mac);
   mac.replace(":", "");
   StringToBytes(mac, target_mac);
   udp.listen(localUdpPort);

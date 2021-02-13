@@ -42,6 +42,11 @@ void loop() {
     pinToggle(RESET_PIN, 200);
     action_reset = 0;
   }
+  if( action_config )
+  {
+    configPortalRequested = true;
+    action_config = false;
+  }
 
   // is configuration portal requested?
   if (configPortalRequested) {

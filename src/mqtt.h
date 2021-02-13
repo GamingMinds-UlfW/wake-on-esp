@@ -1,3 +1,4 @@
+#include "utility.h"
 #include <ArduinoJson.h>
 #include <AsyncMqttClient.h>
 #include <ESP8266WiFi.h>
@@ -6,13 +7,14 @@
 static bool action_power = 0;
 static bool action_power_force = 0;
 static bool action_reset = 0;
-static int wlan_disconnects = 0;
+static bool action_config = false;
 static AsyncMqttClient mqttClient;
 Ticker mqttReconnectTimer;
 StaticJsonDocument<1024> aliveJson;
 StaticJsonDocument<1024> ackJson;
 static char mqtt_state_topic[128] = "";
 static char mqtt_ack_topic[128] = "";
+static char mqtt_config_topic[128] = "";
 
 Ticker mqttAliveTimer;
 
@@ -27,18 +29,20 @@ void connectToMqtt() {
 
 void onMqttConnect(bool sessionPresent) {
   Serial.println("*MQTT: Connected to MQTT.");
-  Serial.print("*MQTT: Session present: ");
-  Serial.println(sessionPresent);
+  Utility::Serial::printLn("*MQTT: Session present: ", sessionPresent);
   if (strlen(mqtt_topic) == 0) {
     strcpy(mqtt_topic, "wakeonesp/wake");
   };
   strcpy(mqtt_state_topic, mqtt_topic);
-  strcpy(mqtt_ack_topic, mqtt_topic);
   strcat(mqtt_state_topic, "/state");
+  strcpy(mqtt_ack_topic, mqtt_topic);
   strcat(mqtt_ack_topic, "/ack");
+  strcpy(mqtt_config_topic, mqtt_topic);
+  strcat(mqtt_config_topic, "/config");
   uint16_t packetIdSub = mqttClient.subscribe(mqtt_topic, 2);
-  Serial.print("*MQTT: Subscribing at QoS 2, packetId: ");
-  Serial.println(packetIdSub);
+  Utility::Serial::printLn("*MQTT: Subscribing to ", mqtt_topic, " at QoS 2, packetId: ", packetIdSub);
+  packetIdSub = mqttClient.subscribe(mqtt_config_topic, 2);
+  Utility::Serial::printLn("*MQTT: Subscribing to ", mqtt_config_topic, " at QoS 2, packetId: ", packetIdSub);
 
   aliveJson["mqtt"]["connectMillis"] = millis();
 
@@ -64,35 +68,16 @@ void onMqttDisconnect(AsyncMqttClientDisconnectReason reason) {
 
 void onMqttSubscribe(uint16_t packetId, uint8_t qos) {
   Serial.println("*MQTT: Subscribe acknowledged.");
-  Serial.print("*MQTT:   packetId: ");
-  Serial.println(packetId);
-  Serial.print("*MQTT:   qos: ");
-  Serial.println(qos);
+  Utility::Serial::printLn("*MQTT:   packetId: ", packetId);
+  Utility::Serial::printLn("*MQTT:   qos: ", qos);
 }
 
 void onMqttUnsubscribe(uint16_t packetId) {
   Serial.println("*MQTT: Unsubscribe acknowledged.");
-  Serial.print("*MQTT:   packetId: ");
-  Serial.println(packetId);
+  Utility::Serial::printLn("*MQTT:   packetId: ", packetId);
 }
 
-void onMqttMessage(char *topic, char *payload, AsyncMqttClientMessageProperties properties, size_t len, size_t index, size_t total) {
-  Serial.println("*MQTT: Publish received.");
-  Serial.print("*MQTT:   topic: ");
-  Serial.println(topic);
-  Serial.print("*MQTT:   qos: ");
-  Serial.println(properties.qos);
-  Serial.print("*MQTT:   dup: ");
-  Serial.println(properties.dup);
-  Serial.print("*MQTT:   retain: ");
-  Serial.println(properties.retain);
-  Serial.print("*MQTT:   len: ");
-  Serial.println(len);
-  Serial.print("*MQTT:   index: ");
-  Serial.println(index);
-  Serial.print("*MQTT:   total: ");
-  Serial.println(total);
-  Serial.println();
+void onMqttActionMessage(char *topic, char *payload, AsyncMqttClientMessageProperties properties, size_t len, size_t index, size_t total) {
   if (!strncmp(payload, "on", len)) {
     action_power = 1;
     ackJson["type"] = "power";
@@ -111,10 +96,47 @@ void onMqttMessage(char *topic, char *payload, AsyncMqttClientMessageProperties 
   }
 }
 
+void onMqttConfigMessage(char *topic, char *payload, AsyncMqttClientMessageProperties properties, size_t len, size_t index, size_t total) {
+  if (payload && 0 == strncmp(payload, "vermackelt", len)) {
+    action_config = true;
+    ackJson["type"] = "config";
+    ackJson["millis"] = millis();
+    mqttAckPublish();
+  }
+}
+
+void onMqttMessage(char *topic, char *payload, AsyncMqttClientMessageProperties properties, size_t len, size_t index, size_t total) {
+  std::array<char, 128> pl;
+
+  // Not sure if this is really needed, but to not tamper with the parameter passed down to other functions make a zero-terminated copy for display.
+  const size_t max = len < (pl.size() - 1) ? len : (pl.size() - 1);
+  strncpy(&pl[0], payload, max);
+  pl[max] = 0;
+
+  Serial.println("*MQTT: Publish received.");
+  Utility::Serial::printLn("*MQTT:   topic: ", topic);
+  Utility::Serial::printLn("*MQTT:   qos: ", properties.qos);
+  Utility::Serial::printLn("*MQTT:   dup: ", properties.dup);
+  Utility::Serial::printLn("*MQTT:   retain: ", properties.retain);
+  Utility::Serial::printLn("*MQTT:   len: ", len);
+  Utility::Serial::printLn("*MQTT:   index: ", index);
+  Utility::Serial::printLn("*MQTT:   total: ", total);
+  if (nullptr == payload )
+    Serial.println("*MQTT:   payload: (null)");
+  else
+    Utility::Serial::printLn("*MQTT:   payload: ", &pl[0]);
+  Serial.println();
+
+  if (0 == strcmp(mqtt_topic, topic)) {
+      onMqttActionMessage(topic, payload, properties, len, index, total);
+  } else if (0 == strcmp(mqtt_config_topic, topic)) {
+      onMqttConfigMessage(topic, payload, properties, len, index, total);
+  }
+}
+
 void onMqttPublish(uint16_t packetId) {
   Serial.println("*MQTT: Publish acknowledged.");
-  Serial.print("*MQTT:   packetId: ");
-  Serial.println(packetId);
+  Utility::Serial::printLn("*MQTT:   packetId: ", packetId);
 }
 
 static char mqtt_clientid[24] = "";
@@ -130,8 +152,7 @@ void mqttSetup() {
   IPAddress mqtt_ip;
   mqtt_ip.fromString(mqtt_server);
 
-  Serial.print("*MQTT: Connecting to: ");
-  Serial.println(mqtt_ip);
+  Utility::Serial::printLn("*MQTT: Connecting to: ", mqtt_ip);
 
   mqttClient.setServer(mqtt_ip, atoi(mqtt_port));
   mqttClient.setCredentials(mqtt_user, mqtt_password);
