@@ -49,14 +49,6 @@ configPortal:
     for (int i = 0; !connected && i < 10; ++i) {
       connected = wifiManager.autoConnect();
 
-      if (connected) {
-        // Otherwise an **OPEN** AP is present where everyone can connect...
-        // Suggested by https://github.com/tzapu/WiFiManager/issues/833
-        WiFi.mode(WIFI_STA);
-        // Suggested by https://forum.arduino.cc/index.php?topic=557669.0
-        // WiFi.softAPdisconnect(true);
-      }
-
       // If connection failed, and the user requested opening the config portal by shorting D4,
       //  go to the config portal.
       if (!connected && configPortalRequested) {
@@ -73,7 +65,12 @@ configPortal:
       ESP.restart();
     }
 
+    // We should get here only if we're connected.
+    // Otherwise an **OPEN** AP is present where everyone can connect...
+    // Suggested by https://github.com/tzapu/WiFiManager/issues/833
     WiFi.mode(WIFI_STA);
+    // Suggested by https://forum.arduino.cc/index.php?topic=557669.0
+    // WiFi.softAPdisconnect(true);
   }
 
   strcpy(mqtt_server, custom_mqtt_server.getValue());

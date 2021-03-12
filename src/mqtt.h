@@ -121,16 +121,16 @@ void onMqttMessage(char *topic, char *payload, AsyncMqttClientMessageProperties 
   Utility::Serial::printLn("*MQTT:   len: ", len);
   Utility::Serial::printLn("*MQTT:   index: ", index);
   Utility::Serial::printLn("*MQTT:   total: ", total);
-  if (nullptr == payload )
+  if (nullptr == payload)
     Serial.println("*MQTT:   payload: (null)");
   else
     Utility::Serial::printLn("*MQTT:   payload: ", &pl[0]);
   Serial.println();
 
   if (0 == strcmp(mqtt_topic, topic)) {
-      onMqttActionMessage(topic, payload, properties, len, index, total);
+    onMqttActionMessage(topic, payload, properties, len, index, total);
   } else if (0 == strcmp(mqtt_config_topic, topic)) {
-      onMqttConfigMessage(topic, payload, properties, len, index, total);
+    onMqttConfigMessage(topic, payload, properties, len, index, total);
   }
 }
 
@@ -193,6 +193,7 @@ void callbackMqttAliveTimer() {
     String str;
     aliveJson["uptimeMillis"] = millis();
     aliveJson["lastAction"] = ackJson;
+    aliveJson["wifiMode"] = WiFi.getMode();
     serializeJson(aliveJson, str);
     mqttClient.publish(mqtt_state_topic, 0, false, str.c_str());
   }
