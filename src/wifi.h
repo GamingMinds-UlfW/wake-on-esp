@@ -62,6 +62,8 @@ configPortal:
       Serial.println("Could not connect to WLAN, restarting...");
       ESP.restart();
     }
+
+    WiFi.mode(WIFI_STA);
   }
 
   strcpy(mqtt_server, custom_mqtt_server.getValue());
